@@ -37,6 +37,7 @@ def reset_select(key_to_reset):
 
 # 3. 画面タイトルと学年フィルターの設置
 st.title("シラバス・時間割作成ツール")
+st.write("現在認識されている科目名列:", SUBJECT_COL)
 
 # 対象学年の選択UI
 target_year = st.radio(
@@ -130,11 +131,6 @@ for period in periods:
                 if target_year in filtered_df.columns:
                     filtered_df = filtered_df[pd.to_numeric(filtered_df[target_year],errors='coerce').fillna(0) == 1] 
 
-
-                # デバッグ用出力コード（ifの内側をさらに4スペース分下げます）
-                if target_year == "2年" and sem == "集中" and day == "他":
-                    st.write("2年・集中・他 で残っている件数:", len(filtered_df))
-                    st.write("残っている科目リスト:", filtered_df[SUBJECT_COL].tolist())
  
             # 学期による絞り込み
                 if SEMESTER_COL and SEMESTER_COL in df.columns:
