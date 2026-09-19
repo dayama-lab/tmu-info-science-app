@@ -126,12 +126,11 @@ for period in periods:
             for sem in semesters:
                 filtered_df = df.copy()
                 
-            # ⭕️ 全角「１」、半角「1」、文字列、数値1.0のすべてに対応する安全な判定
-            if target_year in filtered_df.columns:
-            # 全角数字を半角にし、空白を除去してから "1" であるものを抽出
-            s_clean = filtered_df[target_year].astype(str).str.translate(str.maketrans('０１２３４５６７８９', '0123456789')).str.strip()
-            filtered_df = filtered_df[s_clean.str.startswith("1")]             
-                # 学期による絞り込み
+            # 学年フラグによる絞り込み
+                if target_year in filtered_df.columns:
+                    s_clean = filtered_df[target_year].astype(str).str.translate(str.maketrans('０１２３４５６７８９', '0123456789')).str.strip()
+                    filtered_df = filtered_df[s_clean.str.startswith("1")]
+            # 学期による絞り込み
                 if SEMESTER_COL and SEMESTER_COL in df.columns:
                     filtered_df = filtered_df[filtered_df[SEMESTER_COL].astype(str).str.contains(sem, na=False)]
                 
