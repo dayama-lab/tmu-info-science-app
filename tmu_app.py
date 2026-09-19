@@ -37,7 +37,6 @@ def reset_select(key_to_reset):
 
 # 3. 画面タイトルと学年フィルターの設置
 st.title("シラバス・時間割作成ツール")
-st.write("現在認識されている科目名列:", SUBJECT_COL)
 
 # 対象学年の選択UI
 target_year = st.radio(
