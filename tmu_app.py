@@ -4,38 +4,6 @@ import pandas as pd
 # ページの設定（ワイドモード）
 st.set_page_config(page_title="都立大 情報科学 時間割・単位計算ツール", layout="wide")
 
-# PC表示を維持しつつ、スマホ（画面幅768px以下）のみ横崩れを防止するレスポンシブCSS
-st.markdown("""
-<style>
-/* スマホなどの狭い画面（768px以下）でのみ横スクロールと崩れ防止を適用 */
-@media (max-width: 768px) {
-    [data-testid="stHorizontalBlock"] {
-        flex-wrap: nowrap !important;
-        overflow-x: auto;
-    }
-    [data-testid="column"] {
-        min-width: 100px !important;
-        padding: 0 2px !important;
-    }
-    div[data-baseweb="select"] {
-        font-size: 11px !important;
-    }
-}
-
-/* ラベルやヘッダーの表示設定 */
-.period-header {
-    font-weight: bold;
-    text-align: center;
-    padding: 4px 0;
-}
-.sub-label {
-    font-size: 11px;
-    color: #666666;
-    margin-bottom: -4px;
-}
-</style>
-""", unsafe_allow_html=True)
-
 st.title("📚 シラバス・時間割作成ツール")
 
 # シラバスデータの読み込み
@@ -64,7 +32,7 @@ else:
 
 st.markdown("---")
 
-# 単位数の集計表示（PC元通りの大きなレイアウト）
+# 単位数の集計表示
 st.subheader("📊 年間取得単位数（全学期・全区分 合算）")
 
 total_credits = 0
@@ -95,33 +63,39 @@ st.markdown("---")
 # 時間割の構築
 st.subheader("📅 時間割表")
 
-days = ["月曜日", "火曜日", "水曜日", "木曜日", "金曜日"]
-periods = [1, 2, 3, 4, 5]
+days = ["月曜日", "火曜日", "水曜日", "木曜日", "金曜日", "他"]
+periods = [1, 2, 3, 4, 5, 6]
 
 # 曜日ヘッダー
-cols = st.columns([0.8] + [2]*5)
+cols = st.columns([1] + [2]*len(days))
 cols[0].write("**時限**")
 for idx, day in enumerate(days):
-    cols[idx + 1].markdown(f"<div class='period-header'>{day}</div>", unsafe_allow_html=True)
+    cols[idx + 1].write(f"**{day}**")
 
 # 各時限の選択UI
 for period in periods:
-    cols = st.columns([0.8] + [2]*5)
+    cols = st.columns([1] + [2]*len(days))
     cols[0].write(f"**{period}限**")
     
     for idx, day in enumerate(days):
         col = cols[idx + 1]
         
         # 該当する曜日・時限の科目を抽出
-        slot_courses = filtered_df[
-            (filtered_df["曜日"].astype(str).str.contains(day[:1])) & 
-            (filtered_df["時限"].astype(str).str.contains(str(period)))
-        ]
+        if day == "他":
+            slot_courses = filtered_df[
+                (filtered_df["曜日"].astype(str).str.contains("他")) | 
+                (filtered_df["時限"].astype(str).str.contains(str(period)))
+            ]
+        else:
+            slot_courses = filtered_df[
+                (filtered_df["曜日"].astype(str).str.contains(day[:1])) & 
+                (filtered_df["時限"].astype(str).str.contains(str(period)))
+            ]
         
         options = ["-- 未選択 --"] + slot_courses["科目名"].tolist()
         
-        # 前期選択
-        col.markdown("<div class='sub-label'>【前期】</div>", unsafe_allow_html=True)
+        # 前期
+        col.write("【前期】")
         key_zen = f"{target_year}_{day}_{period}_前期"
         col.selectbox(
             "【前期】",
@@ -130,13 +104,23 @@ for period in periods:
             label_visibility="collapsed"
         )
         
-        # 後期選択
-        col.markdown("<div class='sub-label'>【後期】</div>", unsafe_allow_html=True)
+        # 後期
+        col.write("【後期】")
         key_kou = f"{target_year}_{day}_{period}_後期"
         col.selectbox(
             "【後期】",
             options,
             key=key_kou,
+            label_visibility="collapsed"
+        )
+
+        # 通年
+        col.write("【通年】")
+        key_tsunen = f"{target_year}_{day}_{period}_通年"
+        col.selectbox(
+            "【通年】",
+            options,
+            key=key_tsunen,
             label_visibility="collapsed"
         )
 
