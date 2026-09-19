@@ -128,7 +128,7 @@ for period in periods:
                 
                 # 学年フラグによる絞り込み
                 if target_year in filtered_df.columns:
-                    filtered_df = filtered_df[filtered_df[target_year].astype(str).str.strip() == "1"]
+                    filtered_df = filtered_df[pd.to_numeric(filtered_df[target_year], errors='coerce') == 1]
                 
                 # 学期による絞り込み
                 if SEMESTER_COL and SEMESTER_COL in df.columns:
