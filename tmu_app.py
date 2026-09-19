@@ -32,46 +32,32 @@ label {
 
 st.title("📚 シラバス・時間割作成ツール")
 
-# シラバスデータの読み込みと列名の表記揺れ吸収
+# シラバスデータの読み込みと形式調整
 @st.cache_data
 def load_data():
     df = pd.read_csv("syllabus_tmu.csv")
     
-    # 列名の表記揺れを補正するマッピング
-    column_mapping = {
-        '対象学年': '学年',
-        '単位': '単位数',
-        '開講期': '学期',
-        '履修区分': '区分'
-    }
-    df = df.rename(columns=column_mapping)
-    
-    # 学年列を数値型にキャスト（"1年" や 1 どちらにも対応）
-    if '学年' in df.columns:
-        df['学年'] = df['学年'].astype(str).str.extract(r'(\d+)').astype(int)
+    # 区分列の自動判別（'科目区分' または '区分'）
+    if '科目区分' in df.columns:
+        df['区分'] = df['科目区分']
         
     return df
 
 try:
     df = load_data()
 except Exception as e:
-    st.error(f"syllabus_tmu.csv の読み込みまたはデータ形式に問題があります: {e}")
-    st.stop()
-
-# 必要な列の存在チェック
-required_cols = ['学年', '曜日', '時限', '科目名', '単位数']
-missing_cols = [c for c in required_cols if c not in df.columns]
-if missing_cols:
-    st.error(f"CSVファイルに必要な列が存在しません: { missing_cols }")
-    st.info(f"現在のCSVの列名: {list(df.columns)}")
+    st.error(f"syllabus_tmu.csv の読み込みに失敗しました: {e}")
     st.stop()
 
 # 対象学年フィルター
 st.write("### 表示・選択する対象学年を選んでください")
 target_year = st.radio("学年", ["1年", "2年", "3年", "4年"], horizontal=True)
 
-year_num = int(target_year.replace("1年", "1").replace("2年", "2").replace("3年", "3").replace("4年", "4"))
-filtered_df = df[df["学年"] == year_num]
+# 選択された学年列に値（〇や数値等）が入っている科目を抽出
+if target_year in df.columns:
+    filtered_df = df[df[target_year].notna() & (df[target_year].astype(str).str.strip() != "")]
+else:
+    filtered_df = df.copy()
 
 st.markdown("---")
 
@@ -98,7 +84,7 @@ for period in periods:
         
         # 該当する曜日・時限の科目を抽出
         slot_courses = filtered_df[
-            (filtered_df["曜日"].str.contains(day[:1])) & 
+            (filtered_df["曜日"].astype(str).str.contains(day[:1])) & 
             (filtered_df["時限"].astype(str).str.contains(str(period)))
         ]
         
@@ -134,7 +120,11 @@ for key, course_name in st.session_state.items():
     if isinstance(course_name, str) and course_name != "-- 未選択 --":
         match_row = df[df["科目名"] == course_name]
         if not match_row.empty:
-            credit = float(match_row.iloc[0]["単位数"])
+            try:
+                credit = float(match_row.iloc[0]["単位数"])
+            except (ValueError, TypeError):
+                credit = 0.0
+                
             total_credits += credit
             cat = match_row.iloc[0]["区分"] if "区分" in match_row.columns else "-"
             selected_summary.append({
