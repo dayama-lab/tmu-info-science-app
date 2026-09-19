@@ -32,23 +32,44 @@ label {
 
 st.title("📚 シラバス・時間割作成ツール")
 
-# シラバスデータの読み込み
+# シラバスデータの読み込みと列名の表記揺れ吸収
 @st.cache_data
 def load_data():
     df = pd.read_csv("syllabus_tmu.csv")
+    
+    # 列名の表記揺れを補正するマッピング
+    column_mapping = {
+        '対象学年': '学年',
+        '単位': '単位数',
+        '開講期': '学期',
+        '履修区分': '区分'
+    }
+    df = df.rename(columns=column_mapping)
+    
+    # 学年列を数値型にキャスト（"1年" や 1 どちらにも対応）
+    if '学年' in df.columns:
+        df['学年'] = df['学年'].astype(str).str.extract(r'(\d+)').astype(int)
+        
     return df
 
 try:
     df = load_data()
 except Exception as e:
-    st.error("syllabus_tmu.csv の読み込みに失敗しました。ファイルがリポジトリ内に存在するか確認してください。")
+    st.error(f"syllabus_tmu.csv の読み込みまたはデータ形式に問題があります: {e}")
+    st.stop()
+
+# 必要な列の存在チェック
+required_cols = ['学年', '曜日', '時限', '科目名', '単位数']
+missing_cols = [c for c in required_cols if c not in df.columns]
+if missing_cols:
+    st.error(f"CSVファイルに必要な列が存在しません: { missing_cols }")
+    st.info(f"現在のCSVの列名: {list(df.columns)}")
     st.stop()
 
 # 対象学年フィルター
 st.write("### 表示・選択する対象学年を選んでください")
 target_year = st.radio("学年", ["1年", "2年", "3年", "4年"], horizontal=True)
 
-# 学年フィルタリング
 year_num = int(target_year.replace("1年", "1").replace("2年", "2").replace("3年", "3").replace("4年", "4"))
 filtered_df = df[df["学年"] == year_num]
 
@@ -57,10 +78,6 @@ st.markdown("---")
 # 曜日と時限の設定
 days = ["月曜日", "火曜日", "水曜日", "木曜日", "金曜日"]
 periods = [1, 2, 3, 4, 5]
-
-# 選択科目を保持するセッション状態の初期化
-if "selected_courses" not in st.session_state:
-    st.session_state["selected_courses"] = {}
 
 # 時間割の構築
 st.subheader("📅 時間割表")
@@ -81,15 +98,15 @@ for period in periods:
         
         # 該当する曜日・時限の科目を抽出
         slot_courses = filtered_df[
-            (filtered_df["曜日"] == day) & 
-            (filtered_df["時限"] == period)
+            (filtered_df["曜日"].str.contains(day[:1])) & 
+            (filtered_df["時限"].astype(str).str.contains(str(period)))
         ]
         
         options = ["-- 未選択 --"] + slot_courses["科目名"].tolist()
         
         # 前期
         key_zen = f"{target_year}_{day}_{period}_前期"
-        selected_zen = col.selectbox(
+        col.selectbox(
             f"【前期】",
             options,
             key=key_zen,
@@ -98,7 +115,7 @@ for period in periods:
         
         # 後期
         key_kou = f"{target_year}_{day}_{period}_後期"
-        selected_kou = col.selectbox(
+        col.selectbox(
             f"【後期】",
             options,
             key=key_kou,
@@ -114,18 +131,19 @@ total_credits = 0
 selected_summary = []
 
 for key, course_name in st.session_state.items():
-    if course_name != "-- 未選択 --" and isinstance(course_name, str):
+    if isinstance(course_name, str) and course_name != "-- 未選択 --":
         match_row = df[df["科目名"] == course_name]
         if not match_row.empty:
-            credit = match_row.iloc[0]["単位数"]
+            credit = float(match_row.iloc[0]["単位数"])
             total_credits += credit
+            cat = match_row.iloc[0]["区分"] if "区分" in match_row.columns else "-"
             selected_summary.append({
                 "科目名": course_name,
                 "単位数": credit,
-                "区分": match_row.iloc[0]["区分"]
+                "区分": cat
             })
 
-st.metric("合計取得単位数", f"{total_credits} 単位")
+st.metric("合計取得単位数", f"{int(total_credits) if total_credits.is_integer() else total_credits} 単位")
 
 if selected_summary:
     st.write("#### 選択中科目一覧")
