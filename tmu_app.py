@@ -129,11 +129,11 @@ for period in periods:
             # 学年フラグによる絞り込み（数値として 1 かどうかだけを直接判定）
                 if target_year in filtered_df.columns:
                     filtered_df = filtered_df[pd.to_numeric(filtered_df[target_year],errors='coerce').fillna(0) == 1] 
-         
-            if target_year == "2年" and sem == "集中" and day == "他":
-    st.write("2年・集中・他 で残っている件数:", len(filtered_df))
-    st.write("残っている科目リスト:", filtered_df[SUBJECT_COL].tolist())
-                
+
+        
+         if target_year == "2年" and sem == "集中" and day == "他":
+                  st.write("2年・集中・他 で残っている件数:", len(filtered_df))  # ❌ ifより下がっていない
+ 
             # 学期による絞り込み
                 if SEMESTER_COL and SEMESTER_COL in df.columns:
                     filtered_df = filtered_df[filtered_df[SEMESTER_COL].astype(str).str.contains(sem, na=False)]
