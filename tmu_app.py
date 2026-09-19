@@ -125,11 +125,11 @@ for period in periods:
 
             for sem in semesters:
                 filtered_df = df.copy()
-                
-            # 学年フラグによる絞り込み
+            
+            # 学年フラグによる絞り込み（数値として 1 かどうかだけを直接判定）
                 if target_year in filtered_df.columns:
-                    s_clean = filtered_df[target_year].astype(str).str.translate(str.maketrans('０１２３４５６７８９', '0123456789')).str.strip()
-                    filtered_df = filtered_df[s_clean.str.startswith("1")]
+                    filtered_df = filtered_df[pd.to_numeric(filtered_df[target_year],errors='coerce').fillna(0) == 1]    
+                
             # 学期による絞り込み
                 if SEMESTER_COL and SEMESTER_COL in df.columns:
                     filtered_df = filtered_df[filtered_df[SEMESTER_COL].astype(str).str.contains(sem, na=False)]
