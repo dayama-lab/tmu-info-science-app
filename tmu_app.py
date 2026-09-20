@@ -180,6 +180,7 @@ else:
 
 st.divider()
 
+
 # 6. 時間割グリッドの表示
 header_cols = st.columns([1, 2, 2, 2, 2, 2, 2])
 header_cols[0].write("**時限**")
@@ -202,9 +203,14 @@ for period in periods:
                 continue
 
             for sem in semesters:
+                select_key = f"select_{day}_{period}限_{sem}"
+                selected_course = st.session_state.get(
+                    select_key, "-- 未選択 --"
+                )
+
                 filtered_df = df.copy()
 
-                # 学年フラグによる絞り込み
+                # 学年フラグによる絞り込み（現在選ばれている対象学年の科目を抽出）
                 if target_year in filtered_df.columns:
                     filtered_df = filtered_df[
                         filtered_df[target_year].astype(str).str.strip() == "1"
@@ -246,26 +252,37 @@ for period in periods:
                     filtered_df[SUBJECT_COL].dropna().unique().tolist()
                 )
 
+                # 既に別の学年で選択されている科目がドロップダウンの選択肢に含まれない場合、選択肢に追加して表示崩れを防ぐ
+                if (
+                    selected_course != "-- 未選択 --"
+                    and selected_course not in options_list
+                ):
+                    options_list.append(selected_course)
+
                 if len(options_list) > 0:
                     st.caption(f"【{sem}】")
-                    select_key = f"select_{day}_{period}限_{sem}"
                     course_options = ["-- 未選択 --"] + options_list
 
-                    selected_course = st.selectbox(
+                    # 選択されている科目がリストの何番目にあるか検索（デフォルト設定用）
+                    try:
+                        default_index = course_options.index(selected_course)
+                    except ValueError:
+                        default_index = 0
+
+                    selected_val = st.selectbox(
                         label=f"{day}{period}限{sem}",
                         options=course_options,
+                        index=default_index,
                         key=select_key,
                         label_visibility="collapsed",
                     )
 
-                    if selected_course != "-- 未選択 --":
-                        match = df[df[SUBJECT_COL] == selected_course]
+                    if selected_val != "-- 未選択 --":
+                        match = df[df[SUBJECT_COL] == selected_val]
                         if not match.empty:
                             info = match.iloc[0]
                             cat = str(info.get(CATEGORY_COL, "")).strip()
-                            credit = info.get(
-                                "単位数", info.get("単位", "")
-                            )
+                            credit = info.get("単位数", info.get("単位", ""))
 
                             sub_cat = ""
                             if (
@@ -281,7 +298,7 @@ for period in periods:
                                     sub_cat = raw_sub
 
                             with st.container(border=True):
-                                st.markdown(f"**{selected_course}**")
+                                st.markdown(f"**{selected_val}**")
 
                                 details = []
                                 if cat and cat != "nan":
