@@ -4,15 +4,102 @@ import streamlit as st
 
 st.set_page_config(page_title="シラバス・時間割作成ツール", layout="wide")
 
+
 # 1. CSVデータの読み込み
 @st.cache_data
 def load_data():
+    # シラバスデータのパス解決と読み込み
     script_dir = os.path.dirname(__file__)
     csv_path = os.path.join(script_dir, "syllabus_tmu.csv")
     if not os.path.exists(csv_path):
         csv_path = "syllabus_tmu.csv"
-    return pd.read_csv(csv_path)
+    df_syllabus = pd.read_csv(csv_path)
 
+    # 学年別単位データの読み込み
+    try:
+        credits_path = os.path.join(script_dir, "grade_credits.csv")
+        if not os.path.exists(credits_path):
+            credits_path = "grade_credits.csv"
+
+        df_credits = pd.read_csv(credits_path)
+        # '-' を 0 に置換し、数値型に変換
+        for col in df_credits.columns:
+            if col != "学年":
+                df_credits[col] = (
+                    df_credits[col]
+                    .astype(str)
+                    .str.replace("-", "0")
+                    .str.strip()
+                )
+                df_credits[col] = (
+                    pd.to_numeric(df_credits[col], errors="coerce")
+                    .fillna(0)
+                    .astype(int)
+                )
+    except Exception as e:
+        df_credits = None
+
+    return df_syllabus, df_credits
+
+
+# データの呼び出し（シラバスデータを df として受け取ります）
+df, df_credits = load_data()
+
+
+# 各列の自動特定
+CATEGORY_COL = "科目区分" if "科目区分" in df.columns else df.columns[0]
+SUB_CATEGORY_COL = "区分詳細" if "区分詳細" in df.columns else None
+SUBJECT_COL = "科目名" if "科目名" in df.columns else df.columns[1]
+
+for col in df.columns:
+    if any(k in str(col) for k in ["授業", "科目名", "コース"]):
+        if not any(ik in str(col) for ik in ["区分", "種別"]):
+            SUBJECT_COL = col
+            break
+
+# 曜日・時限・開講期の列を特定
+DAY_COL = next(
+    (c for c in df.columns if "曜日" in str(c) or str(c) == "曜日"), None
+)
+PERIOD_COL = next(
+    (c for c in df.columns if "時限" in str(c) or str(c) == "時限"), None
+)
+SEMESTER_COL = next(
+    (
+        c
+        for c in df.columns
+        if any(k in str(c) for k in ["開講期", "学期", "期"])
+    ),
+    None,
+)
+
+
+# --- サイドバー：学年選択 ---
+st.sidebar.header("設定")
+selected_grade = st.sidebar.selectbox(
+    "表示する学年を選択", options=[1, 2, 3, 4], format_func=lambda x: f"{x}年生"
+)
+
+
+# --- メイン画面：学年別目標単位数の表示 ---
+if df_credits is not None:
+    st.subheader(f"🎓 {selected_grade}年生の目標取得単位")
+
+    # 選択された学年のデータを行として取得
+    grade_row = df_credits[df_credits["学年"] == selected_grade]
+
+    if not grade_row.empty:
+        # 目標単位数を辞書形式で抽出（'学年' 列を除く）
+        target_dict = grade_row.drop(columns=["学年"]).iloc[0].to_dict()
+
+        # 0単位以外の項目を抽出して分かりやすく表示
+        active_targets = {k: v for k, v in target_dict.items() if v > 0}
+
+        # メトリクスカード形式で横並び表示
+        cols = st.columns(len(active_targets) if active_targets else 1)
+        for idx, (cat, target_val) in enumerate(active_targets.items()):
+            with cols[idx % len(cols)]:
+                st.metric(label=cat, value=f"{target_val} 単位")
 df = load_data()
 
 # 各列の自動特定
